@@ -1,4 +1,4 @@
-use std::{io::{self, Stdout, BufReader}, env, path::{PathBuf, Path}, fs::File, rc::Rc};
+use std::{io::{self, Stdout, BufReader}, env, path::{PathBuf, Path}, fs::File, rc::Rc, cell::RefCell};
 use crossterm::event::KeyCode;
 use rodio::{Decoder, Sink};
 use tui::{
@@ -8,17 +8,19 @@ use tui::{
     widgets::{Block, Borders, List, ListItem, ListState}, 
     style::{Style, Color},
 };
-use crate::ui::{Window, UI};
+use crate::{ui::{Window, UI}, audio::AudioInterface};
 
 pub struct LibraryWindow {
     title: String,
+    audio_interface: Rc<AudioInterface>,
     music_list: Vec<String>,
     state: ListState,
-    sink: Rc<Sink>,
 }
 
+
 impl LibraryWindow {
-    pub fn new(sink: Rc<Sink>) -> Self {
+    pub fn new(audio_interface: Rc<AudioInterface>) -> Self {
+        // TODO: Remove the env::home_dir() call and replace it with a config file
         let music_list = recursive_file_walk(&env::home_dir().unwrap().join("Music"))
             .into_iter()
             .map(|path| path.to_str().unwrap().to_string())
@@ -27,16 +29,10 @@ impl LibraryWindow {
             title: String::from("Library"),
             music_list,
             state: ListState::default(),
-            sink,
+            audio_interface
         }
     }
 
-    fn play(&self, file: &str) {
-        let file = File::open(file).unwrap();
-        let source = Decoder::new(BufReader::new(file)).unwrap();
-        self.sink.stop();
-        self.sink.append(source);
-    }
 
     pub fn next(&mut self) {
         let i = match self.state.selected() {
@@ -51,6 +47,11 @@ impl LibraryWindow {
         };
         self.state.select(Some(i));
     }
+
+    pub fn get_state(&self) -> usize {
+        self.state.selected().unwrap_or(0)
+    }
+
 
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
@@ -91,7 +92,7 @@ impl Window for LibraryWindow {
             KeyCode::Down => {self.next()},
             KeyCode::Enter => {
                 if let Some(i) = self.state.selected() {
-                    self.play(&self.music_list[i])
+                    self.audio_interface.play(&self.music_list[i]);
                 }
             }
             _ => {},
