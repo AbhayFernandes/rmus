@@ -1,4 +1,4 @@
-use std::{io::{self, Stdout}, rc::Rc, cell::RefCell};
+use std::{io::{self, Stdout}, rc::Rc, cell::RefCell, time::Duration};
 use tui::{
     backend::CrosstermBackend, 
     layout::{Constraint, Direction, Layout, Rect}, 
@@ -6,12 +6,14 @@ use tui::{
     style::{Style, Color}, text::Spans, Frame};
 use tui::Terminal;
 use crossterm::{
-    event::{EnableMouseCapture, Event, KeyCode},
+    event::{EnableMouseCapture, Event, KeyCode, poll},
     execute,
     terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode},
 };
 
 use crate::audio::{AudioInterface, AudioFile};
+
+const TICK_RATE: Duration = Duration::from_millis(100);
 
 pub trait Window {
     fn get_title(&self) -> String;
@@ -107,24 +109,27 @@ impl UI {
 
     pub fn run(&mut self) -> Result<(), io::Error> {
         let mut up_next = UpNextWindow::new(self.audio_interface.clone());
+        // Create a second thread for handling input:
         loop {
             self.draw(&mut up_next)?;
             self.audio_interface.borrow_mut().handle_queue();
-            if let Event::Key(key) = crossterm::event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('h') => {
-                        self.previous_tab();
+            if poll(TICK_RATE)? {
+                if let Event::Key(key) = crossterm::event::read()? {
+                    match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Char('h') => {
+                            self.previous_tab();
+                        }
+                        KeyCode::Char('l') => {
+                            self.next_tab();
+                        }
+                        _ => {
+                            self.windows[self.current_tab].handle_input(key.code)?;
+                        }
                     }
-                    KeyCode::Char('l') => {
-                        self.next_tab();
-                    }
-                    _ => {
-                        self.windows[self.current_tab].handle_input(key.code)?;
-                    }
+                } else {
+                    continue
                 }
-            } else {
-                continue
             }
         }
         Ok(())
