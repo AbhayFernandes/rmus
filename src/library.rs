@@ -9,40 +9,8 @@ use tui::{
     widgets::{Block, Borders, List, ListItem, ListState}, 
     style::{Style, Color},
 };
-use crate::{ui::{Window, UI}, audio::AudioInterface};
+use crate::{ui::{Window}, audio::{AudioInterface, AudioFile}};
 
-#[derive(Clone)]
-pub struct AudioFile {
-    path: PathBuf,
-    title: String,
-    artist: String,
-}
-
-impl AudioFile {
-    fn new(path: &String) -> Self {
-        if let Ok(tag) = Tag::new().read_from_path(path) {
-            Self {
-                path: PathBuf::from(path),
-                title: tag.title().unwrap_or("Unknown").to_string(),
-                artist: tag.artist().unwrap_or("Unknown").to_string(),
-            }
-        } else {
-            Self {
-                path: PathBuf::from(path),
-                title: String::from("Unknown"),
-                artist: String::from("Unknown"),
-            }
-        }
-    }
-
-    pub fn get_path(&self) -> &Path {
-        self.path.as_path()
-    }
-
-    pub fn get_title(&self) -> &String {
-        &self.title
-    }
-}
 
 pub struct LibraryWindow {
     title: String,

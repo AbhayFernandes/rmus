@@ -11,7 +11,7 @@ use crossterm::{
     terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode},
 };
 
-use crate::{audio::AudioInterface, library::AudioFile};
+use crate::audio::{AudioInterface, AudioFile};
 
 pub trait Window {
     fn get_title(&self) -> String;

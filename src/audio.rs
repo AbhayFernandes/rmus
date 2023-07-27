@@ -1,12 +1,44 @@
 use std::io::{BufReader, Error, ErrorKind};
 use std::collections::VecDeque;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use audiotags::Tag;
 use rodio::DeviceTrait;
 use rodio::cpal::traits::HostTrait;
 use rodio::cpal;
 
-use crate::library::AudioFile;
+#[derive(Clone)]
+pub struct AudioFile {
+    path: PathBuf,
+    title: String,
+    artist: String,
+}
+
+impl AudioFile {
+    pub fn new(path: &String) -> Self {
+        if let Ok(tag) = Tag::new().read_from_path(path) {
+            Self {
+                path: PathBuf::from(path),
+                title: tag.title().unwrap_or("Unknown").to_string(),
+                artist: tag.artist().unwrap_or("Unknown").to_string(),
+            }
+        } else {
+            Self {
+                path: PathBuf::from(path),
+                title: String::from("Unknown"),
+                artist: String::from("Unknown"),
+            }
+        }
+    }
+
+    pub fn get_path(&self) -> &Path {
+        self.path.as_path()
+    }
+
+    pub fn get_title(&self) -> &String {
+        &self.title
+    }
+}
 
 pub struct Devices {
     devices: Vec<rodio::Device>,
