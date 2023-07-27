@@ -123,6 +123,8 @@ impl UI {
                         self.windows[self.current_tab].handle_input(key.code)?;
                     }
                 }
+            } else {
+                continue
             }
         }
         Ok(())
@@ -148,7 +150,6 @@ impl UI {
             .style(Style::default().fg(Color::Green))
             .highlight_style(Style::default().fg(Color::White))
             .select(self.current_tab);
-        // TODO: Move this somewhere else so a new window is not created on every draw call.
         let remaining_space = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(100)].as_ref())

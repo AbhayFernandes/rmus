@@ -13,7 +13,7 @@ use tui::{
 };
 
 use crate::audio::AudioInterface;
-use crate::ui::{Window, UI};
+use crate::ui::{Window};
 pub struct Settings {
     lib_folders: Vec<String>,
     audio_device: rodio::Device,
@@ -67,7 +67,7 @@ impl Window for DeviceWindow {
         Ok(())
     }
 
-    fn handle_input(&mut self, key: KeyCode) -> Result<(), io::Error> {
+    fn handle_input(&mut self, _key: KeyCode) -> Result<(), io::Error> {
         Ok(())
     }
 }
@@ -84,11 +84,11 @@ impl Window for FoldersWindow {
         self.title.clone()
     }
 
-    fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
+    fn draw(&mut self, _area: Rect, _f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
         Ok(())
     }
 
-    fn handle_input(&mut self, key: KeyCode) -> Result<(), io::Error> {
+    fn handle_input(&mut self, _key: KeyCode) -> Result<(), io::Error> {
         Ok(())
     }
 }
@@ -103,10 +103,12 @@ pub struct SettingsWindow {
 
 impl SettingsWindow {
     pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
+        let mut state = ListState::default();
+        state.select(Some(0));
         Self {
             title: String::from("Settings"),
             audio_interface: audio_interface.clone(),
-            state: ListState::default(),
+            state, 
             selected_window: 0,
             settings_windows: vec![
                 Box::new(DeviceWindow::new(audio_interface.clone())),
