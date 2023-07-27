@@ -11,7 +11,7 @@ use crossterm::{
     terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode},
 };
 
-use crate::{audio::{AudioInterface, self}, library::LibraryWindow, settings::SettingsWindow};
+use crate::{audio::AudioInterface, library::AudioFile};
 
 pub trait Window {
     fn get_title(&self) -> String;
@@ -22,7 +22,7 @@ pub trait Window {
 pub struct UpNextWindow {
     title: String,
     audio_interface: Rc<RefCell<AudioInterface>>,
-    next_up: String,
+    next_up: Option<AudioFile>,
 }
 
 impl UpNextWindow {
@@ -30,15 +30,15 @@ impl UpNextWindow {
         Self {
             audio_interface,
             title: String::from("Up Next"),
-            next_up: String::from("Nothing"),
+            next_up: None,
         }
     }
     
     fn update_up_next(&mut self) {
         if let Some(next) = self.audio_interface.borrow().get_next() {
-            self.next_up = next.clone();
+            self.next_up = Some(next.clone());
         } else {
-            self.next_up = String::from("Nothing");
+            self.next_up = None;
         }
     }
 }
@@ -50,7 +50,11 @@ impl Window for UpNextWindow {
     }
 
     fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
-        let up_next = Paragraph::new(self.next_up.as_str())
+        self.update_up_next();
+        let up_next = Paragraph::new(match &self.next_up {
+            Some(audio_file) => audio_file.get_title().clone(),
+            None => String::from("Nothing"),
+        })
             .block(Block::default().title("Next Up:").borders(Borders::ALL))
             .style(Style::default().fg(Color::Green));
         f.render_widget(up_next, area);

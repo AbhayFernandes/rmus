@@ -1,9 +1,12 @@
 use std::io::{BufReader, Error, ErrorKind};
+use std::collections::VecDeque;
 use std::path::Path;
 
 use rodio::DeviceTrait;
 use rodio::cpal::traits::HostTrait;
 use rodio::cpal;
+
+use crate::library::AudioFile;
 
 pub struct Devices {
     devices: Vec<rodio::Device>,
@@ -50,8 +53,8 @@ impl Devices {
 
 pub struct AudioInterface {
     pub devices: Devices,
-    queue: Vec<String>,
-    currently_playing: Option<String>,
+    queue: VecDeque<AudioFile>,
+    currently_playing: Option<AudioFile>,
     sink: rodio::Sink,
 }
 
@@ -63,27 +66,40 @@ impl AudioInterface {
             devices: Devices::new(),
             sink,
             currently_playing: None,
-            queue: Vec::new(),
+            queue: VecDeque::new(),
         }
     }
 
-    pub fn append_to_queue(&mut self, new_queue: &mut Vec<String>) {
-        self.queue.append(new_queue);
+    pub fn append_to_queue(&mut self, new_queue: &mut Vec<AudioFile>) {
+        // Vec to VecDeque
+        let mut new_queue = new_queue.drain(..).collect::<VecDeque<_>>();
+        self.queue.append(&mut new_queue);
         if self.currently_playing.is_none() {
             self.play_next();
         }
     }
 
+    pub fn clear_queue(&mut self) {
+        self.queue.clear();
+    }
+
+    pub fn hard_clear_queue(&mut self) {
+        self.queue.clear();
+        self.sink.stop();
+        self.currently_playing = None;
+    }
+
     pub fn handle_queue(&mut self) {
-        if self.sink.empty() && self.currently_playing.is_some() {
+        if self.sink.empty() && self.currently_playing.is_none() {
+            self.currently_playing = self.get_next().map(|s| s.clone());
             self.play_next();
-        } else if self.sink.empty() && self.currently_playing.is_none() {
+        } else if self.sink.empty() && self.currently_playing.is_some() {
             self.currently_playing = None;
         }
     }
 
-    pub fn get_next(&self) -> Option<&String> {
-        if let Some(next) = self.queue.last() {
+    pub fn get_next(&self) -> Option<&AudioFile> {
+        if let Some(next) = self.queue.front() {
             Some(next)
         } else {
             None
@@ -91,15 +107,15 @@ impl AudioInterface {
     }
 
     fn play_next(&mut self) {
-        if let Some(next) = self.queue.pop() {
+        if let Some(next) = self.queue.pop_front() {
             self.currently_playing = Some(next);
-            self.play(self.currently_playing.as_ref().unwrap()).unwrap();
+            self.play(self.currently_playing.as_ref().unwrap().get_path()).unwrap();
         }
     }
 
-    pub fn play(&self, file: &String) -> Result<(), std::io::Error>{
+    pub fn play(&self, file: &Path) -> Result<(), std::io::Error>{
         self.sink.stop();
-        let extension = Path::new(file)
+        let extension = file
             .extension()
             .and_then(|ext| ext.to_str())
             .unwrap_or("");

@@ -1,5 +1,6 @@
 use std::{io::{self, Stdout, BufReader}, env, path::{PathBuf, Path}, fs::File, rc::Rc, cell::RefCell};
 use crossterm::event::KeyCode;
+use audiotags::Tag;
 use rodio::{Decoder, Sink};
 use tui::{
     layout::Rect, 
@@ -10,10 +11,43 @@ use tui::{
 };
 use crate::{ui::{Window, UI}, audio::AudioInterface};
 
+#[derive(Clone)]
+pub struct AudioFile {
+    path: PathBuf,
+    title: String,
+    artist: String,
+}
+
+impl AudioFile {
+    fn new(path: &String) -> Self {
+        if let Ok(tag) = Tag::new().read_from_path(path) {
+            Self {
+                path: PathBuf::from(path),
+                title: tag.title().unwrap_or("Unknown").to_string(),
+                artist: tag.artist().unwrap_or("Unknown").to_string(),
+            }
+        } else {
+            Self {
+                path: PathBuf::from(path),
+                title: String::from("Unknown"),
+                artist: String::from("Unknown"),
+            }
+        }
+    }
+
+    pub fn get_path(&self) -> &Path {
+        self.path.as_path()
+    }
+
+    pub fn get_title(&self) -> &String {
+        &self.title
+    }
+}
+
 pub struct LibraryWindow {
     title: String,
     audio_interface: Rc<RefCell<AudioInterface>>,
-    music_list: Vec<String>,
+    music_list: Vec<AudioFile>,
     state: ListState,
 }
 
@@ -25,6 +59,7 @@ impl LibraryWindow {
             .into_iter()
             .map(|path| path.to_str().unwrap().to_string())
             .collect::<Vec<_>>();
+        let music_list = music_list.iter().map(|path| AudioFile::new(path)).collect::<Vec<_>>();
         let mut state = ListState::default();
         state.select(Some(0));
         Self {
@@ -54,6 +89,18 @@ impl LibraryWindow {
         self.state.selected().unwrap_or(0)
     }
 
+    fn get_wrapped_music_list(&self, i: usize) -> Vec<AudioFile> {
+        let get_music_list = self.music_list.clone();
+        // split the list in two at the index i given:
+        let first_half = get_music_list.get(0..i).unwrap_or(&[]);
+        let second_half = get_music_list.get(i..).unwrap_or(&[]);
+        // combine the two halves into a new list
+        let mut wrapped_music_list = Vec::new();
+        wrapped_music_list.extend_from_slice(second_half);
+        wrapped_music_list.extend_from_slice(first_half);
+        wrapped_music_list
+    }
+
 
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
@@ -78,7 +125,7 @@ impl Window for LibraryWindow {
     fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
         let list_widget = List::new(self.music_list
             .iter()
-            .map(|file| ListItem::new(file.as_str()))
+            .map(|file| ListItem::new(file.get_title().clone()))
             .collect::<Vec<_>>())
             .block(Block::default().title("Music Found").borders(Borders::ALL))
             .style(Style::default().fg(Color::Green))
@@ -94,7 +141,10 @@ impl Window for LibraryWindow {
             KeyCode::Down => {self.next()},
             KeyCode::Enter => {
                 if let Some(i) = self.state.selected() {
-                    self.audio_interface.borrow().play(&self.music_list[i]);
+                    self.audio_interface.borrow_mut().hard_clear_queue();
+                    let mut wrapped_music_list = self.get_wrapped_music_list(i);
+                    self.audio_interface.borrow_mut().append_to_queue(&mut wrapped_music_list);
+                    //self.audio_interface.borrow().play(&self.music_list[i]);
                 }
             }
             _ => {},
