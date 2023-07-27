@@ -12,23 +12,25 @@ use crate::{ui::{Window, UI}, audio::AudioInterface};
 
 pub struct LibraryWindow {
     title: String,
-    audio_interface: Rc<AudioInterface>,
+    audio_interface: Rc<RefCell<AudioInterface>>,
     music_list: Vec<String>,
     state: ListState,
 }
 
 
 impl LibraryWindow {
-    pub fn new(audio_interface: Rc<AudioInterface>) -> Self {
+    pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
         // TODO: Remove the env::home_dir() call and replace it with a config file
         let music_list = recursive_file_walk(&env::home_dir().unwrap().join("Music"))
             .into_iter()
             .map(|path| path.to_str().unwrap().to_string())
             .collect::<Vec<_>>();
+        let mut state = ListState::default();
+        state.select(Some(0));
         Self {
             title: String::from("Library"),
             music_list,
-            state: ListState::default(),
+            state,
             audio_interface
         }
     }
@@ -92,7 +94,7 @@ impl Window for LibraryWindow {
             KeyCode::Down => {self.next()},
             KeyCode::Enter => {
                 if let Some(i) = self.state.selected() {
-                    self.audio_interface.play(&self.music_list[i]);
+                    self.audio_interface.borrow().play(&self.music_list[i]);
                 }
             }
             _ => {},

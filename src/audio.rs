@@ -82,6 +82,14 @@ impl AudioInterface {
         }
     }
 
+    pub fn get_next(&self) -> Option<&String> {
+        if let Some(next) = self.queue.last() {
+            Some(next)
+        } else {
+            None
+        }
+    }
+
     fn play_next(&mut self) {
         if let Some(next) = self.queue.pop() {
             self.currently_playing = Some(next);

@@ -1,4 +1,4 @@
-use std::{io::{self, Stdout}, rc::Rc};
+use std::{io::{self, Stdout}, rc::Rc, cell::RefCell};
 use tui::{
     backend::CrosstermBackend, 
     layout::{Constraint, Direction, Layout, Rect}, 
@@ -11,7 +11,7 @@ use crossterm::{
     terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode},
 };
 
-use crate::{audio::AudioInterface, library::LibraryWindow, settings::SettingsWindow};
+use crate::{audio::{AudioInterface, self}, library::LibraryWindow, settings::SettingsWindow};
 
 pub trait Window {
     fn get_title(&self) -> String;
@@ -21,14 +21,24 @@ pub trait Window {
 
 pub struct UpNextWindow {
     title: String,
+    audio_interface: Rc<RefCell<AudioInterface>>,
     next_up: String,
 }
 
 impl UpNextWindow {
-    fn new() -> Self {
+    fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
         Self {
+            audio_interface,
             title: String::from("Up Next"),
             next_up: String::from("Nothing"),
+        }
+    }
+    
+    fn update_up_next(&mut self) {
+        if let Some(next) = self.audio_interface.borrow().get_next() {
+            self.next_up = next.clone();
+        } else {
+            self.next_up = String::from("Nothing");
         }
     }
 }
@@ -56,7 +66,7 @@ pub struct UI {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
     windows: Vec<Box<dyn Window>>,
     current_tab: usize,
-    pub audio_interface: Rc<AudioInterface>,
+    pub audio_interface: Rc<RefCell<AudioInterface>>,
 }
 
 impl UI {
@@ -72,7 +82,7 @@ impl UI {
         }
     }
 
-    pub fn new(audio_interface: Rc<AudioInterface>) -> Result<Self, io::Error> {
+    pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Result<Self, io::Error> {
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
@@ -92,9 +102,10 @@ impl UI {
     }
 
     pub fn run(&mut self) -> Result<(), io::Error> {
-        self.draw()?;
+        let mut up_next = UpNextWindow::new(self.audio_interface.clone());
         loop {
-            // TODO: Make this work: self.audio_interface.as_mut().handle_queue();
+            self.draw(&mut up_next)?;
+            self.audio_interface.borrow_mut().handle_queue();
             if let Event::Key(key) = crossterm::event::read()? {
                 match key.code {
                     KeyCode::Char('q') => break,
@@ -108,13 +119,12 @@ impl UI {
                         self.windows[self.current_tab].handle_input(key.code)?;
                     }
                 }
-                self.draw()?;
             }
         }
         Ok(())
     }
 
-    fn draw(&mut self) -> Result<(), io::Error> {
+    fn draw(&mut self, up_next: &mut UpNextWindow) -> Result<(), io::Error> {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
@@ -134,7 +144,7 @@ impl UI {
             .style(Style::default().fg(Color::Green))
             .highlight_style(Style::default().fg(Color::White))
             .select(self.current_tab);
-        let mut up_next = UpNextWindow::new();
+        // TODO: Move this somewhere else so a new window is not created on every draw call.
         let remaining_space = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(100)].as_ref())

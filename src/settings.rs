@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::io::{self, Stdout};
 use crossterm::event::KeyCode;
@@ -31,12 +32,12 @@ impl Settings {
 
 struct DeviceWindow {
     title: String,
-    audio_interface: Rc<AudioInterface>,
+    audio_interface: Rc<RefCell<AudioInterface>>,
     state: ListState,
 }
 
 impl DeviceWindow {
-    fn new(audio_interface: Rc<AudioInterface>) -> Self {
+    fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
         Self {
             title: String::from("Device List"),
             audio_interface,
@@ -51,7 +52,7 @@ impl Window for DeviceWindow {
     }
     
     fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
-        let devices_list = self.audio_interface.devices.get_device_names();
+        let devices_list = self.audio_interface.borrow().devices.get_device_names();
         let devices_window = List::new(devices_list
             .iter()
             .map(|device| ListItem::new(device.as_str()))
@@ -61,7 +62,7 @@ impl Window for DeviceWindow {
             .highlight_style(Style::default().bg(Color::Green).fg(Color::White))
             .highlight_symbol(">> ");
         let mut device_state = ListState::default();
-        device_state.select(Some(self.audio_interface.devices.get_current_device()));
+        device_state.select(Some(self.audio_interface.borrow().devices.get_current_device()));
         f.render_stateful_widget(devices_window, area, &mut device_state);
         Ok(())
     }
@@ -94,14 +95,14 @@ impl Window for FoldersWindow {
 
 pub struct SettingsWindow {
     title: String,
-    audio_interface: Rc<AudioInterface>,
+    audio_interface: Rc<RefCell<AudioInterface>>,
     state: ListState,
     selected_window: usize,
     settings_windows: Vec<Box<dyn Window>>,
 }
 
 impl SettingsWindow {
-    pub fn new(audio_interface: Rc<AudioInterface>) -> Self {
+    pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
         Self {
             title: String::from("Settings"),
             audio_interface: audio_interface.clone(),
