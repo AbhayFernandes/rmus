@@ -1,12 +1,12 @@
-use std::{io, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, io, rc::Rc};
 
-use settings::SettingsWindow;
 use library::LibraryWindow;
+use settings::SettingsWindow;
 
-mod ui;
-mod audio; 
+mod audio;
 mod library;
 mod settings;
+mod ui;
 
 fn main() -> Result<(), io::Error> {
     // terminal initialization
@@ -14,12 +14,7 @@ fn main() -> Result<(), io::Error> {
     let sink = rodio::Sink::try_new(&stream_handle).unwrap();
     let audio_interface = Rc::new(RefCell::new(audio::AudioInterface::new(sink)));
     let mut ui: ui::UI = ui::UI::new(audio_interface.clone())?;
-    ui.push_window(
-        Box::new(LibraryWindow::new(audio_interface.clone())),
-    );
-    ui.push_window(
-        Box::new(SettingsWindow::new(audio_interface)),
-    );
+    ui.push_window(Box::new(LibraryWindow::new(audio_interface.clone())));
+    ui.push_window(Box::new(SettingsWindow::new(audio_interface)));
     ui.run()
 }
-

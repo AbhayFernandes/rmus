@@ -1,23 +1,35 @@
-use std::{io::{self, Stdout}, rc::Rc, cell::RefCell, time::Duration};
-use tui::{
-    backend::CrosstermBackend, 
-    layout::{Constraint, Direction, Layout, Rect}, 
-    widgets::{Block, Tabs, Borders, Paragraph},
-    style::{Style, Color}, text::Spans, Frame};
-use tui::Terminal;
 use crossterm::{
-    event::{EnableMouseCapture, Event, KeyCode, poll},
+    event::{poll, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen},
+};
+use std::{
+    cell::RefCell,
+    io::{self, Stdout},
+    rc::Rc,
+    time::Duration,
+};
+use tui::Terminal;
+use tui::{
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    text::Spans,
+    widgets::{Block, Borders, Paragraph, Tabs},
+    Frame,
 };
 
-use crate::audio::{AudioInterface, AudioFile};
+use crate::audio::{AudioFile, AudioInterface};
 
 const TICK_RATE: Duration = Duration::from_millis(100);
 
 pub trait Window {
     fn get_title(&self) -> String;
-    fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error>;
+    fn draw(
+        &mut self,
+        area: Rect,
+        f: &mut Frame<CrosstermBackend<Stdout>>,
+    ) -> Result<(), io::Error>;
     fn handle_input(&mut self, key: KeyCode) -> Result<(), io::Error>;
 }
 
@@ -35,7 +47,7 @@ impl UpNextWindow {
             next_up: None,
         }
     }
-    
+
     fn update_up_next(&mut self) {
         if let Some(next) = self.audio_interface.borrow().get_next() {
             self.next_up = Some(next.clone());
@@ -45,20 +57,23 @@ impl UpNextWindow {
     }
 }
 
-
 impl Window for UpNextWindow {
     fn get_title(&self) -> String {
         self.title.clone()
     }
 
-    fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
+    fn draw(
+        &mut self,
+        area: Rect,
+        f: &mut Frame<CrosstermBackend<Stdout>>,
+    ) -> Result<(), io::Error> {
         self.update_up_next();
         let up_next = Paragraph::new(match &self.next_up {
             Some(audio_file) => audio_file.get_title().clone(),
             None => String::from("Nothing"),
         })
-            .block(Block::default().title("Next Up:").borders(Borders::ALL))
-            .style(Style::default().fg(Color::Green));
+        .block(Block::default().title("Next Up:").borders(Borders::ALL))
+        .style(Style::default().fg(Color::Green));
         f.render_widget(up_next, area);
         Ok(())
     }
@@ -94,14 +109,13 @@ impl UI {
         let terminal = Terminal::new(backend)?;
         enable_raw_mode()?;
         execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
-        Ok(Self { 
+        Ok(Self {
             terminal,
-            windows: Vec::new(), 
+            windows: Vec::new(),
             current_tab: 0,
             audio_interface,
         })
     }
-    
 
     pub fn push_window(&mut self, window: Box<dyn Window>) {
         self.windows.push(window);
@@ -128,7 +142,7 @@ impl UI {
                         }
                     }
                 } else {
-                    continue
+                    continue;
                 }
             }
         }
@@ -149,12 +163,12 @@ impl UI {
             self.windows
                 .iter()
                 .map(|w| Spans::from(w.get_title()))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         )
-            .block(Block::default().title("Rmus - Tabs").borders(Borders::ALL))
-            .style(Style::default().fg(Color::Green))
-            .highlight_style(Style::default().fg(Color::White))
-            .select(self.current_tab);
+        .block(Block::default().title("Rmus - Tabs").borders(Borders::ALL))
+        .style(Style::default().fg(Color::Green))
+        .highlight_style(Style::default().fg(Color::White))
+        .select(self.current_tab);
         let remaining_space = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(100)].as_ref())
@@ -162,7 +176,7 @@ impl UI {
         self.terminal.draw(|f| {
             f.render_widget(window_tabs, top_chunks[0]);
             up_next.draw(top_chunks[1], f);
-            self.windows[self.current_tab].draw(remaining_space[0], f); 
+            self.windows[self.current_tab].draw(remaining_space[0], f);
         })?;
         Ok(())
     }
@@ -176,7 +190,8 @@ impl Drop for UI {
             self.terminal.backend_mut(),
             crossterm::terminal::LeaveAlternateScreen,
             crossterm::event::DisableMouseCapture
-        ).unwrap();
+        )
+        .unwrap();
         self.terminal.show_cursor().unwrap();
     }
 }

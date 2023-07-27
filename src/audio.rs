@@ -1,13 +1,13 @@
+use std::collections::VecDeque;
 use std::io::Error;
 use std::io::{BufReader, ErrorKind};
-use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use audiotags::Tag;
-use rodio::DeviceTrait;
-use rodio::cpal::traits::HostTrait;
 use rodio::cpal;
+use rodio::cpal::traits::HostTrait;
+use rodio::DeviceTrait;
 
 #[derive(Clone)]
 pub struct AudioFile {
@@ -31,7 +31,10 @@ impl AudioFile {
                 duration: tag.duration().unwrap_or(0.0),
             })
         } else {
-            Err(std::io::Error::new(ErrorKind::NotFound, "Failed to read file"))
+            Err(std::io::Error::new(
+                ErrorKind::NotFound,
+                "Failed to read file",
+            ))
         }
     }
 
@@ -85,15 +88,15 @@ impl Devices {
             }
         }
         let device_names = devices
-        .iter()
-        .map(|device| device.name().unwrap())
-        .collect::<Vec<_>>();
+            .iter()
+            .map(|device| device.name().unwrap())
+            .collect::<Vec<_>>();
         // get index of current device:
         let current_device = devices
             .iter()
             .position(|device| device.name().unwrap() == device.name().unwrap())
             .unwrap();
-        Devices{
+        Devices {
             devices,
             device_names,
             current_device,
@@ -196,16 +199,14 @@ impl AudioInterface {
         if let Some(next) = self.queue.pop_front() {
             self.currently_playing = Some(next);
             self.track.reset();
-            self.play(self.currently_playing.as_ref().unwrap().get_path()).unwrap();
+            self.play(self.currently_playing.as_ref().unwrap().get_path())
+                .unwrap();
         }
     }
 
-    fn play(&self, file: &Path) -> Result<(), std::io::Error>{
+    fn play(&self, file: &Path) -> Result<(), std::io::Error> {
         self.sink.stop();
-        let extension = file
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .unwrap_or("");
+        let extension = file.extension().and_then(|ext| ext.to_str()).unwrap_or("");
         let file = BufReader::new(std::fs::File::open(file)?);
         // match on the extension of the file:
         match extension {
@@ -213,33 +214,31 @@ impl AudioInterface {
                 if let Ok(source) = rodio::Decoder::new_mp3(file) {
                     self.sink.append(source);
                 } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"))
+                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
                 };
-            },
+            }
             "wav" => {
                 if let Ok(source) = rodio::Decoder::new_wav(file) {
                     self.sink.append(source);
                 } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"))
+                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
                 };
-            },
+            }
             "flac" => {
                 if let Ok(source) = rodio::Decoder::new_flac(file) {
                     self.sink.append(source);
                 } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"))
+                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
                 };
-            },
+            }
             "ogg" => {
                 if let Ok(source) = rodio::Decoder::new(file) {
                     self.sink.append(source);
                 } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"))
+                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
                 };
-            },
-            _ => {
-                return Err(Error::new(ErrorKind::Other, "Failed to play file"))
             }
+            _ => return Err(Error::new(ErrorKind::Other, "Failed to play file")),
         }
         Ok(())
     }

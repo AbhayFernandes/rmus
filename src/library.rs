@@ -1,14 +1,22 @@
-use std::{io::{self, Stdout}, env, path::{PathBuf, Path}, rc::Rc, cell::RefCell};
-use crossterm::event::KeyCode;
-use tui::{
-    layout::{Rect, Constraint}, 
-    Frame, 
-    backend::CrosstermBackend, 
-    widgets::{Block, Borders, Row, Table, TableState}, 
-    style::{Style, Color, Modifier},
+use crate::{
+    audio::{AudioFile, AudioInterface},
+    ui::Window,
 };
-use crate::{ui::Window, audio::{AudioInterface, AudioFile}};
-
+use crossterm::event::KeyCode;
+use std::{
+    cell::RefCell,
+    env,
+    io::{self, Stdout},
+    path::{Path, PathBuf},
+    rc::Rc,
+};
+use tui::{
+    backend::CrosstermBackend,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Row, Table, TableState},
+    Frame,
+};
 
 pub struct LibraryWindow {
     title: String,
@@ -16,7 +24,6 @@ pub struct LibraryWindow {
     music_list: Vec<AudioFile>,
     state: TableState,
 }
-
 
 impl LibraryWindow {
     pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
@@ -41,10 +48,9 @@ impl LibraryWindow {
             title: String::from("Library"),
             music_list,
             state,
-            audio_interface
+            audio_interface,
         }
     }
-
 
     pub fn next(&mut self) {
         let i = match self.state.selected() {
@@ -54,7 +60,7 @@ impl LibraryWindow {
                 } else {
                     i + 1
                 }
-            },
+            }
             None => 0,
         };
         self.state.select(Some(i));
@@ -72,7 +78,6 @@ impl LibraryWindow {
         wrapped_music_list
     }
 
-
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
@@ -81,7 +86,7 @@ impl LibraryWindow {
                 } else {
                     i - 1
                 }
-            },
+            }
             None => 0,
         };
         self.state.select(Some(i));
@@ -93,18 +98,20 @@ impl Window for LibraryWindow {
         self.title.clone()
     }
 
-    fn draw(&mut self, area: Rect, f: &mut Frame<CrosstermBackend<Stdout>>) -> Result<(), io::Error> {
+    fn draw(
+        &mut self,
+        area: Rect,
+        f: &mut Frame<CrosstermBackend<Stdout>>,
+    ) -> Result<(), io::Error> {
         let mut table_widget_vec = Vec::new();
         for file in self.music_list.iter() {
-            table_widget_vec.push(
-                Row::new(vec![
-                    file.get_title().clone(),
-                    file.get_artist().clone(),
-                    file.get_album().clone(),
-                    file.get_year().to_string(),
-                    file.get_duration(),
-                ])
-            )
+            table_widget_vec.push(Row::new(vec![
+                file.get_title().clone(),
+                file.get_artist().clone(),
+                file.get_album().clone(),
+                file.get_year().to_string(),
+                file.get_duration(),
+            ]))
         }
         let chunks = tui::layout::Layout::default()
             .direction(tui::layout::Direction::Vertical)
@@ -112,34 +119,54 @@ impl Window for LibraryWindow {
                 [
                     tui::layout::Constraint::Percentage(95),
                     tui::layout::Constraint::Percentage(5),
-                ].as_ref()
+                ]
+                .as_ref(),
             )
             .split(area);
         let table_widget = Table::new(table_widget_vec)
             .block(Block::default().title("Music Found").borders(Borders::ALL))
             .style(Style::default().fg(Color::Green))
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD).bg(Color::Green).fg(Color::White))
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .bg(Color::Green)
+                    .fg(Color::White),
+            )
             .header(
                 Row::new(vec!["Title", "Artist", "Album", "Year", "Duration"])
-                    .style(Style::default().fg(Color::Yellow))
+                    .style(Style::default().fg(Color::Yellow)),
             )
-            .widths(&[Constraint::Length(50), Constraint::Length(50), Constraint::Length(50), Constraint::Length(10), Constraint::Length(10)]);
+            .widths(&[
+                Constraint::Length(50),
+                Constraint::Length(50),
+                Constraint::Length(50),
+                Constraint::Length(10),
+                Constraint::Length(10),
+            ]);
         let progress_bar = tui::widgets::Gauge::default()
             .block(Block::default().borders(Borders::ALL))
             .style(Style::default().fg(Color::Green).bg(Color::Black))
             .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
-            .label(match self.audio_interface.borrow().get_currently_playing() {
-                Some(audiofile) => {
-                    let title = audiofile.get_title().clone();
-                    let ratio = self.audio_interface.borrow().get_sink_length() as f64 / audiofile.get_raw_duration();
-                    format!("{} - {:.2}%", title, ratio * 100.0)
+            .label(
+                match self.audio_interface.borrow().get_currently_playing() {
+                    Some(audiofile) => {
+                        let title = audiofile.get_title().clone();
+                        let ratio = self.audio_interface.borrow().get_sink_length() as f64
+                            / audiofile.get_raw_duration();
+                        format!("{} - {:.2}%", title, ratio * 100.0)
+                    }
+                    None => "Nothing Playing".to_string(),
                 },
-                None => "Nothing Playing".to_string(),
-            })
-            .ratio(match self.audio_interface.borrow().get_currently_playing() {
-                Some(audiofile) => self.audio_interface.borrow().get_sink_length() as f64 / audiofile.get_raw_duration(), 
-                None => 0.0,
-            });
+            )
+            .ratio(
+                match self.audio_interface.borrow().get_currently_playing() {
+                    Some(audiofile) => {
+                        self.audio_interface.borrow().get_sink_length() as f64
+                            / audiofile.get_raw_duration()
+                    }
+                    None => 0.0,
+                },
+            );
         f.render_stateful_widget(table_widget, chunks[0], &mut self.state);
         f.render_widget(progress_bar, chunks[1]);
         Ok(())
@@ -147,16 +174,18 @@ impl Window for LibraryWindow {
 
     fn handle_input(&mut self, key: crossterm::event::KeyCode) -> Result<(), io::Error> {
         match key {
-            KeyCode::Up => {self.previous()},
-            KeyCode::Down => {self.next()},
+            KeyCode::Up => self.previous(),
+            KeyCode::Down => self.next(),
             KeyCode::Enter => {
                 if let Some(i) = self.state.selected() {
                     self.audio_interface.borrow_mut().hard_clear_queue();
                     let mut wrapped_music_list = self.get_wrapped_music_list(i);
-                    self.audio_interface.borrow_mut().append_to_queue(&mut wrapped_music_list);
+                    self.audio_interface
+                        .borrow_mut()
+                        .append_to_queue(&mut wrapped_music_list);
                 }
             }
-            _ => {},
+            _ => {}
         }
         Ok(())
     }
@@ -175,7 +204,7 @@ fn recursive_file_walk(path: &Path) -> Vec<PathBuf> {
                 if ext == "mp3" || ext == "flac" || ext == "wav" || ext == "ogg" {
                     files.push(path);
                 }
-            } 
+            }
         }
     }
     files
