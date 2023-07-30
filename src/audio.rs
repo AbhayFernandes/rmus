@@ -4,7 +4,7 @@ use std::io::{BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use audiotags::Tag;
+use audiotags::{AnyTag, AudioTag, Picture, Tag};
 use rodio::cpal;
 use rodio::cpal::traits::HostTrait;
 use rodio::DeviceTrait;
@@ -56,6 +56,10 @@ impl AudioFile {
 
     pub fn get_raw_duration(&self) -> f64 {
         self.duration
+    }
+
+    pub fn get_tag(&self) -> Result<Box<dyn AudioTag>, audiotags::Error> {
+        Tag::new().read_from_path(self.get_path())
     }
 
     pub fn get_duration(&self) -> String {
@@ -114,17 +118,40 @@ impl Devices {
 
 struct Track {
     start_time: Instant,
+    pause_time: Option<Instant>,
+    pause_duration: f64,
 }
 
 impl Track {
     fn new() -> Self {
         Self {
             start_time: Instant::now(),
+            pause_time: None,
+            pause_duration: 0.0,
+        }
+    }
+
+    fn toggle_pause(&mut self) -> () {
+        match self.pause_time {
+            Some(time) => {
+                self.pause_duration += time.elapsed().as_secs_f64();
+                self.pause_time = None;
+            }
+            None => {
+                self.pause_time = Some(Instant::now());
+            }
         }
     }
 
     fn time(&self) -> f64 {
-        self.start_time.elapsed().as_secs_f64()
+        match self.pause_time {
+            None => self.start_time.elapsed().as_secs_f64() - self.pause_duration,
+            Some(time) => {
+                self.start_time.elapsed().as_secs_f64()
+                    - time.elapsed().as_secs_f64()
+                    - self.pause_duration
+            }
+        }
     }
 
     fn reset(&mut self) {
@@ -136,6 +163,7 @@ pub struct AudioInterface {
     pub devices: Devices,
     queue: VecDeque<AudioFile>,
     currently_playing: Option<AudioFile>,
+    pause: bool,
     track: Track,
     sink: rodio::Sink,
 }
@@ -145,14 +173,29 @@ impl AudioInterface {
         Self {
             devices: Devices::new(),
             sink,
+            pause: false,
             track: Track::new(),
             currently_playing: None,
             queue: VecDeque::new(),
         }
     }
 
+    pub fn get_paused(&self) -> bool {
+        self.pause
+    }
+
     pub fn get_currently_playing(&self) -> &Option<AudioFile> {
         &self.currently_playing
+    }
+
+    pub fn toggle_pause(&mut self) {
+        self.track.toggle_pause();
+        self.pause = !self.pause;
+        if self.pause {
+            self.sink.pause();
+        } else {
+            self.sink.play();
+        }
     }
 
     pub fn append_to_queue(&mut self, new_queue: &mut Vec<AudioFile>) {
@@ -172,7 +215,7 @@ impl AudioInterface {
 
     pub fn handle_queue(&mut self) {
         if self.sink.empty() && self.currently_playing.is_none() {
-            self.currently_playing = self.get_next().map(|s| s.clone());
+            self.currently_playing = self.get_next().cloned();
             self.play_next();
         } else if self.sink.empty() && self.currently_playing.is_some() {
             self.currently_playing = None;

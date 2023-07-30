@@ -133,15 +133,15 @@ impl Window for LibraryWindow {
                     .fg(Color::White),
             )
             .header(
-                Row::new(vec!["Title", "Artist", "Album", "Year", "Duration"])
+                Row::new(vec!["Title", "Artist", "Album", "Year", "Length"])
                     .style(Style::default().fg(Color::Yellow)),
             )
             .widths(&[
-                Constraint::Length(50),
-                Constraint::Length(50),
-                Constraint::Length(50),
-                Constraint::Length(10),
-                Constraint::Length(10),
+                Constraint::Percentage(30),
+                Constraint::Percentage(30),
+                Constraint::Percentage(30),
+                Constraint::Percentage(5),
+                Constraint::Percentage(5),
             ]);
         let progress_bar = tui::widgets::Gauge::default()
             .block(Block::default().borders(Borders::ALL))
@@ -149,12 +149,30 @@ impl Window for LibraryWindow {
             .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
             .label(
                 match self.audio_interface.borrow().get_currently_playing() {
-                    Some(audiofile) => {
-                        let title = audiofile.get_title().clone();
-                        let ratio = self.audio_interface.borrow().get_sink_length() as f64
-                            / audiofile.get_raw_duration();
-                        format!("{} - {:.2}%", title, ratio * 100.0)
-                    }
+                    Some(audiofile) => match self.audio_interface.borrow().get_paused() {
+                        true => {
+                            format!(
+                                "⋫ {} - {} - {} / {} ⋪",
+                                audiofile.get_artist(),
+                                audiofile.get_title(),
+                                seconds_to_formatted_time(
+                                    self.audio_interface.borrow().get_sink_length()
+                                ),
+                                audiofile.get_duration()
+                            )
+                        }
+                        false => {
+                            format!(
+                                "► {} - {} - {} / {} ◄",
+                                audiofile.get_artist(),
+                                audiofile.get_title(),
+                                seconds_to_formatted_time(
+                                    self.audio_interface.borrow().get_sink_length()
+                                ),
+                                audiofile.get_duration()
+                            )
+                        }
+                    },
                     None => "Nothing Playing".to_string(),
                 },
             )
@@ -208,4 +226,10 @@ fn recursive_file_walk(path: &Path) -> Vec<PathBuf> {
         }
     }
     files
+}
+
+fn seconds_to_formatted_time(seconds: usize) -> String {
+    let minutes = seconds / 60;
+    let seconds = seconds % 60;
+    format!("{:02}:{:02}", minutes, seconds)
 }

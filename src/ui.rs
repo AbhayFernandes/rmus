@@ -21,7 +21,7 @@ use tui::{
 
 use crate::audio::{AudioFile, AudioInterface};
 
-const TICK_RATE: Duration = Duration::from_millis(100);
+const TICK_RATE: Duration = Duration::from_millis(300);
 
 pub trait Window {
     fn get_title(&self) -> String;
@@ -123,7 +123,7 @@ impl UI {
 
     pub fn run(&mut self) -> Result<(), io::Error> {
         let mut up_next = UpNextWindow::new(self.audio_interface.clone());
-        // Create a second thread for handling input:
+        self.terminal.clear()?;
         loop {
             self.draw(&mut up_next)?;
             self.audio_interface.borrow_mut().handle_queue();
@@ -136,6 +136,9 @@ impl UI {
                         }
                         KeyCode::Char('l') => {
                             self.next_tab();
+                        }
+                        KeyCode::Char('c') => {
+                            self.audio_interface.borrow_mut().toggle_pause();
                         }
                         _ => {
                             self.windows[self.current_tab].handle_input(key.code)?;
@@ -175,8 +178,16 @@ impl UI {
             .split(chunks[1]);
         self.terminal.draw(|f| {
             f.render_widget(window_tabs, top_chunks[0]);
-            up_next.draw(top_chunks[1], f);
-            self.windows[self.current_tab].draw(remaining_space[0], f);
+            if let Err(e) = up_next.draw(top_chunks[1], f) {
+                println!("Error drawing up next: {}", e);
+            };
+            if let Err(e) = self.windows[self.current_tab].draw(remaining_space[0], f) {
+                eprintln!(
+                    "Error drawing window ({}): {}",
+                    self.windows[self.current_tab].get_title(),
+                    e
+                )
+            };
         })?;
         Ok(())
     }
