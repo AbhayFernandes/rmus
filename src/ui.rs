@@ -69,7 +69,11 @@ impl Window for UpNextWindow {
     ) -> Result<(), io::Error> {
         self.update_up_next();
         let up_next = Paragraph::new(match &self.next_up {
-            Some(audio_file) => audio_file.get_title().clone(),
+            Some(audio_file) => format!(
+                "{} by {}",
+                audio_file.get_title().clone(),
+                audio_file.get_artist().clone()
+            ),
             None => String::from("Nothing"),
         })
         .block(Block::default().title("Next Up:").borders(Borders::ALL))
