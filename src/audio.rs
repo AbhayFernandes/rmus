@@ -4,7 +4,7 @@ use std::io::{BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use audiotags::{AnyTag, AudioTag, Picture, Tag};
+use audiotags::Tag;
 use rodio::cpal;
 use rodio::cpal::traits::HostTrait;
 use rodio::DeviceTrait;
@@ -56,10 +56,6 @@ impl AudioFile {
 
     pub fn get_raw_duration(&self) -> f64 {
         self.duration
-    }
-
-    pub fn get_tag(&self) -> Result<Box<dyn AudioTag>, audiotags::Error> {
-        Tag::new().read_from_path(self.get_path())
     }
 
     pub fn get_duration(&self) -> String {
@@ -131,7 +127,7 @@ impl Track {
         }
     }
 
-    fn toggle_pause(&mut self) -> () {
+    fn toggle_pause(&mut self) {
         match self.pause_time {
             Some(time) => {
                 self.pause_duration += time.elapsed().as_secs_f64();
