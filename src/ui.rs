@@ -174,7 +174,7 @@ impl UI {
         )
         .block(Block::default().title("Rmus - Tabs").borders(Borders::ALL))
         .style(Style::default().fg(Color::Green))
-        .highlight_style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().fg(Color::Yellow))
         .select(self.current_tab);
         let remaining_space = Layout::default()
             .direction(Direction::Vertical)

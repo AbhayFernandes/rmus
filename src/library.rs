@@ -113,6 +113,23 @@ impl Window for LibraryWindow {
                 file.get_duration(),
             ]))
         }
+        match self.audio_interface.borrow().get_currently_playing() {
+            Some(track) => {
+                let index = self
+                    .music_list
+                    .iter()
+                    .position(|x| x.get_path() == track.get_path())
+                    .unwrap();
+                table_widget_vec[index] = Row::new(vec![
+                track.get_title().clone(),
+                track.get_artist().clone(),
+                track.get_album().clone(),
+                track.get_year().to_string(),
+                track.get_duration(),
+            ]).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+            }
+            None => {}
+        }
         let chunks = tui::layout::Layout::default()
             .direction(tui::layout::Direction::Vertical)
             .constraints(
