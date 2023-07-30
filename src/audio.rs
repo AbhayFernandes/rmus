@@ -152,6 +152,8 @@ impl Track {
 
     fn reset(&mut self) {
         self.start_time = Instant::now();
+        self.pause_time = None;
+        self.pause_duration = 0.0;
     }
 }
 
@@ -238,6 +240,10 @@ impl AudioInterface {
         if let Some(next) = self.queue.pop_front() {
             self.currently_playing = Some(next);
             self.track.reset();
+            if self.pause {
+                self.pause = false;
+                self.sink.play();
+            }
             self.play(self.currently_playing.as_ref().unwrap().get_path())
                 .unwrap();
         }
