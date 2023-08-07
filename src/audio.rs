@@ -76,7 +76,7 @@ pub struct Devices {
 }
 
 impl Devices {
-    fn new() -> Self {
+    pub fn new(curr_device: usize) -> Self {
         let device_list = match cpal::default_host().output_devices() {
             Ok(devices) => devices,
             Err(_) => panic!("No devices found"),
@@ -89,22 +89,27 @@ impl Devices {
         }
         let device_names = devices
             .iter()
-            .map(|device| device.name().unwrap())
+            .map(|device| 
+                 if let Ok(name) = device.name() {
+                    name
+                 } else {
+                    String::from("Unknown")
+                 })
             .collect::<Vec<_>>();
         // get index of current device:
-        let current_device = devices
-            .iter()
-            .position(|device| device.name().unwrap() == device.name().unwrap())
-            .unwrap();
         Devices {
             devices,
             device_names,
-            current_device,
+            current_device: curr_device,
         }
     }
 
     pub fn get_device_names(&self) -> Vec<String> {
         self.device_names.clone()
+    }
+
+    pub fn get_device_by_index(&self, index: usize) -> &rodio::Device {
+        &self.devices[index]
     }
 
     pub fn get_current_device(&self) -> usize {
@@ -167,9 +172,9 @@ pub struct AudioInterface {
 }
 
 impl AudioInterface {
-    pub fn new(sink: rodio::Sink) -> Self {
+    pub fn new(sink: rodio::Sink, devices: Devices) -> Self {
         Self {
-            devices: Devices::new(),
+            devices,
             sink,
             pause: false,
             track: Track::new(),

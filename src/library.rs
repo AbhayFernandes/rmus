@@ -1,6 +1,7 @@
 use crate::{
     audio::{AudioFile, AudioInterface},
     ui::Window,
+    settings::Settings,
 };
 use crossterm::event::KeyCode;
 use std::{
@@ -20,13 +21,14 @@ use tui::{
 
 pub struct LibraryWindow {
     title: String,
+    settings: Rc<RefCell<Settings>>,
     audio_interface: Rc<RefCell<AudioInterface>>,
     music_list: Vec<AudioFile>,
     state: TableState,
 }
 
 impl LibraryWindow {
-    pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
+    pub fn new(settings: Rc<RefCell<Settings>>, audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
         // TODO: Remove the env::home_dir() call and replace it with a config file
         let music_list = recursive_file_walk(&env::home_dir().unwrap().join("Music"))
             .into_iter()
@@ -48,6 +50,7 @@ impl LibraryWindow {
             title: String::from("Library"),
             music_list,
             state,
+            settings,
             audio_interface,
         }
     }
@@ -121,12 +124,17 @@ impl Window for LibraryWindow {
                     .position(|x| x.get_path() == track.get_path())
                     .unwrap();
                 table_widget_vec[index] = Row::new(vec![
-                track.get_title().clone(),
-                track.get_artist().clone(),
-                track.get_album().clone(),
-                track.get_year().to_string(),
-                track.get_duration(),
-            ]).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+                    track.get_title().clone(),
+                    track.get_artist().clone(),
+                    track.get_album().clone(),
+                    track.get_year().to_string(),
+                    track.get_duration(),
+                ])
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                );
             }
             None => {}
         }

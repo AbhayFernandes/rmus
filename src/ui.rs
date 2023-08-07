@@ -14,23 +14,54 @@ use tui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    text::Spans,
+    text::Line,
     widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
 };
 
+use crate::settings::Settings;
 use crate::audio::{AudioFile, AudioInterface};
 
 const TICK_RATE: Duration = Duration::from_millis(300);
 
 pub trait Window {
-    fn get_title(&self) -> String;
+    fn get_title(&self) -> String {
+        String::from("Window")
+    }
+
     fn draw(
         &mut self,
         area: Rect,
         f: &mut Frame<CrosstermBackend<Stdout>>,
     ) -> Result<(), io::Error>;
-    fn handle_input(&mut self, key: KeyCode) -> Result<(), io::Error>;
+    
+    fn handle_input(&mut self, _key: KeyCode) -> Result<(), io::Error> {
+        Ok(())
+    }
+}
+
+pub struct TextInputHandler {
+    text_input: bool,
+}
+
+impl TextInputHandler {
+    pub fn new() -> Self {
+        Self {
+            text_input: false,
+        }
+    }
+
+    fn get_state(&self) -> bool {
+        self.text_input.clone()
+    }
+
+    pub fn lock_input(&mut self) {
+        self.text_input = true;
+    }
+
+    pub fn unlock_input(&mut self) {
+        self.text_input = false;
+    }
 }
 
 pub struct UpNextWindow {
@@ -92,6 +123,8 @@ pub struct UI {
     windows: Vec<Box<dyn Window>>,
     current_tab: usize,
     pub audio_interface: Rc<RefCell<AudioInterface>>,
+    pub text_input_handler: Rc<RefCell<TextInputHandler>>,
+    pub settings: Rc<RefCell<Settings>>,
 }
 
 impl UI {
@@ -107,7 +140,7 @@ impl UI {
         }
     }
 
-    pub fn new(audio_interface: Rc<RefCell<AudioInterface>>) -> Result<Self, io::Error> {
+    pub fn new(settings: Rc<RefCell<Settings>>, audio_interface: Rc<RefCell<AudioInterface>>, text_input_handler: Rc<RefCell<TextInputHandler>>) -> Result<Self, io::Error> {
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
@@ -118,6 +151,8 @@ impl UI {
             windows: Vec::new(),
             current_tab: 0,
             audio_interface,
+            settings,
+            text_input_handler,
         })
     }
 
@@ -133,8 +168,12 @@ impl UI {
             self.audio_interface.borrow_mut().handle_queue();
             if poll(TICK_RATE)? {
                 if let Event::Key(key) = crossterm::event::read()? {
+                    if self.text_input_handler.borrow().get_state() == false {
                     match key.code {
-                        KeyCode::Char('q') => break,
+                        KeyCode::Char('q') => {
+                            self.settings.borrow().save();
+                            break
+                        },
                         KeyCode::Char('h') => {
                             self.previous_tab();
                         }
@@ -148,6 +187,9 @@ impl UI {
                             self.windows[self.current_tab].handle_input(key.code)?;
                         }
                     }
+                } else {
+                    self.windows[self.current_tab].handle_input(key.code)?;
+                }
                 } else {
                     continue;
                 }
@@ -169,7 +211,7 @@ impl UI {
         let window_tabs = Tabs::new(
             self.windows
                 .iter()
-                .map(|w| Spans::from(w.get_title()))
+                .map(|w| Line::from(w.get_title()))
                 .collect::<Vec<_>>(),
         )
         .block(Block::default().title("Rmus - Tabs").borders(Borders::ALL))
