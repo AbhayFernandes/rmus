@@ -19,16 +19,28 @@ pub struct AudioFile {
     duration: f64,
 }
 
+const EMPTY_ALBUM: audiotags::types::Album = audiotags::types::Album {
+    title: "Unknown",
+    artist: None,
+    cover: None,
+};
+
 impl AudioFile {
     pub fn new(path: &String) -> Result<Self, std::io::Error> {
         if let Ok(tag) = Tag::new().read_from_path(path) {
+            // get duration, scaffolding for when an implementation 
+            // for finding the bitrate and estimating the duration
+            let duration: f64 = match tag.duration() {
+                Some(duration) => duration,
+                None => 0.0, 
+            };
             Ok(Self {
                 path: PathBuf::from(path),
                 title: tag.title().unwrap_or("Unknown").to_string(),
                 year: tag.year().unwrap_or(0),
                 artist: tag.artist().unwrap_or("Unknown").to_string(),
-                album: tag.album().unwrap().title.to_string(),
-                duration: tag.duration().unwrap_or(0.0),
+                album: tag.album().unwrap_or(EMPTY_ALBUM).title.to_string(),
+                duration,
             })
         } else {
             Err(std::io::Error::new(
@@ -89,12 +101,13 @@ impl Devices {
         }
         let device_names = devices
             .iter()
-            .map(|device| 
-                 if let Ok(name) = device.name() {
+            .map(|device| {
+                if let Ok(name) = device.name() {
                     name
-                 } else {
+                } else {
                     String::from("Unknown")
-                 })
+                }
+            })
             .collect::<Vec<_>>();
         // get index of current device:
         Devices {
@@ -165,6 +178,8 @@ impl Track {
 pub struct AudioInterface {
     pub devices: Devices,
     queue: VecDeque<AudioFile>,
+    // prevent the stream from being dropped
+    stream: rodio::OutputStream,
     currently_playing: Option<AudioFile>,
     pause: bool,
     track: Track,
@@ -172,9 +187,10 @@ pub struct AudioInterface {
 }
 
 impl AudioInterface {
-    pub fn new(sink: rodio::Sink, devices: Devices) -> Self {
+    pub fn new(stream: rodio::OutputStream, sink: rodio::Sink, devices: Devices) -> Self {
         Self {
             devices,
+            stream,
             sink,
             pause: false,
             track: Track::new(),
@@ -256,40 +272,18 @@ impl AudioInterface {
 
     fn play(&self, file: &Path) -> Result<(), std::io::Error> {
         self.sink.stop();
-        let extension = file.extension().and_then(|ext| ext.to_str()).unwrap_or("");
         let file = BufReader::new(std::fs::File::open(file)?);
-        // match on the extension of the file:
-        match extension {
-            "mp3" => {
-                if let Ok(source) = rodio::Decoder::new_mp3(file) {
-                    self.sink.append(source);
-                } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
-                };
+        match rodio::Decoder::new(file) {
+            Ok(source) => {
+                self.sink.append(source);
+                Ok(())
             }
-            "wav" => {
-                if let Ok(source) = rodio::Decoder::new_wav(file) {
-                    self.sink.append(source);
-                } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
-                };
+            Err(e) => {
+                Err(Error::new(
+                    ErrorKind::InvalidData,
+                    e,
+                )) 
             }
-            "flac" => {
-                if let Ok(source) = rodio::Decoder::new_flac(file) {
-                    self.sink.append(source);
-                } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
-                };
-            }
-            "ogg" => {
-                if let Ok(source) = rodio::Decoder::new(file) {
-                    self.sink.append(source);
-                } else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to play file"));
-                };
-            }
-            _ => return Err(Error::new(ErrorKind::Other, "Failed to play file")),
         }
-        Ok(())
     }
 }

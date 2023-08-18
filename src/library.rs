@@ -1,7 +1,7 @@
 use crate::{
     audio::{AudioFile, AudioInterface},
-    ui::Window,
     settings::Settings,
+    ui::Window,
 };
 use crossterm::event::KeyCode;
 use std::{
@@ -28,8 +28,12 @@ pub struct LibraryWindow {
 }
 
 impl LibraryWindow {
-    pub fn new(settings: Rc<RefCell<Settings>>, audio_interface: Rc<RefCell<AudioInterface>>) -> Self {
-        // TODO: Remove the env::home_dir() call and replace it with a config file
+    pub fn new(
+        settings: Rc<RefCell<Settings>>,
+        audio_interface: Rc<RefCell<AudioInterface>>,
+    ) -> Self {
+        // TODO: Remove the env::home_dir() call and replace it with a config file,
+        // Move the music list into the settings struct
         let music_list = recursive_file_walk(&env::home_dir().unwrap().join("Music"))
             .into_iter()
             .map(|path| path.to_str().unwrap().to_string())
@@ -204,8 +208,13 @@ impl Window for LibraryWindow {
             .ratio(
                 match self.audio_interface.borrow().get_currently_playing() {
                     Some(audiofile) => {
-                        self.audio_interface.borrow().get_sink_length() as f64
-                            / audiofile.get_raw_duration()
+                        let ratio = self.audio_interface.borrow().get_sink_length() as f64
+                            / audiofile.get_raw_duration();
+                        if ratio < 1.0 && ratio > 0.0 {
+                            ratio
+                        } else {
+                            0.0
+                        }
                     }
                     None => 0.0,
                 },

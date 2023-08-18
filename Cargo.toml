@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 tui = {package = "ratatui", version = "*", features = ["all-widgets"]}
 crossterm = "*"
-rodio = "*"
+rodio = "*" 
 audiotags = { version = "*", package = "audiotags" }
 reqwest = { version = "*", features = ["json", "blocking"] }  
 confy = "*"
