@@ -9,6 +9,7 @@ edition = "2021"
 tui = {package = "ratatui", version = "*", features = ["all-widgets"]}
 crossterm = "*"
 rodio = "*" 
+home = "*"
 audiotags = { version = "*", package = "audiotags" }
 reqwest = { version = "*", features = ["json", "blocking"] }  
 confy = "*"

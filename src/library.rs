@@ -6,9 +6,8 @@ use crate::{
 use crossterm::event::KeyCode;
 use std::{
     cell::RefCell,
-    env,
     io::{self, Stdout},
-    path::{Path, PathBuf},
+    path::Path,
     rc::Rc,
 };
 use tui::{
@@ -32,22 +31,7 @@ impl LibraryWindow {
         settings: Rc<RefCell<Settings>>,
         audio_interface: Rc<RefCell<AudioInterface>>,
     ) -> Self {
-        // TODO: Remove the env::home_dir() call and replace it with a config file,
-        // Move the music list into the settings struct
-        let music_list = recursive_file_walk(&env::home_dir().unwrap().join("Music"))
-            .into_iter()
-            .map(|path| path.to_str().unwrap().to_string())
-            .collect::<Vec<_>>();
-        let music_list = music_list
-            .iter()
-            .filter_map(|path| {
-                if let Ok(audiofile) = AudioFile::new(path) {
-                    Some(audiofile)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        let music_list = LibraryWindow::load_music_list(settings.clone());
         let mut state = TableState::default();
         state.select(Some(0));
         Self {
@@ -57,6 +41,20 @@ impl LibraryWindow {
             settings,
             audio_interface,
         }
+    }
+
+    fn load_music_list(settings: Rc<RefCell<Settings>>) -> Vec<AudioFile> {
+        let music_list = recursive_vec_file_walk(settings.borrow().get_lib_folders());
+        music_list
+            .iter()
+            .filter_map(|path| {
+                if let Ok(audiofile) = AudioFile::new(path) {
+                    Some(audiofile)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn next(&mut self) {
@@ -243,7 +241,18 @@ impl Window for LibraryWindow {
     }
 }
 
-fn recursive_file_walk(path: &Path) -> Vec<PathBuf> {
+fn recursive_vec_file_walk(lib_folders: Vec<String>) -> Vec<String> {
+    let mut files = Vec::new();
+    for str_path in lib_folders {
+        let path = Path::new(str_path.as_str());
+        recursive_file_walk(path)
+            .into_iter()
+            .for_each(|x| files.push(x))
+    }
+    files
+}
+
+fn recursive_file_walk(path: &Path) -> Vec<String> {
     let mut files = Vec::new();
     for entry in path.read_dir().expect("read_dir call failed") {
         let entry = entry.expect("Error reading entry");
@@ -254,7 +263,7 @@ fn recursive_file_walk(path: &Path) -> Vec<PathBuf> {
             // Check if file is an mp3, flac, wav, or ogg and add it to the list
             if let Some(ext) = path.extension() {
                 if ext == "mp3" || ext == "flac" || ext == "wav" || ext == "ogg" {
-                    files.push(path);
+                    files.push(path.as_os_str().to_str().unwrap().to_string());
                 }
             }
         }

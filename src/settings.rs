@@ -16,7 +16,7 @@ use tui::{
 
 #[derive(Serialize, Deserialize)]
 pub struct Settings {
-    lib_folders: Vec<String>,
+    pub lib_folders: Vec<String>,
     device: usize,
 }
 
@@ -42,6 +42,10 @@ impl Settings {
         self.device
     }
 
+    pub fn get_lib_folders(&self) -> Vec<String> {
+        self.lib_folders.clone()
+    }
+
     pub fn save(&self) {
         let cwd = std::env::current_dir().unwrap();
         let settings_path = cwd.join("settings.json");
@@ -50,17 +54,10 @@ impl Settings {
     }
 }
 
-enum Popup {
-    None,
-    Message(String),
-    Input(String),
-}
-
 struct DeviceWindow {
     title: String,
     audio_interface: Rc<RefCell<AudioInterface>>,
     settings: Rc<RefCell<Settings>>,
-    popup: Popup,
     state: ListState,
 }
 
@@ -72,7 +69,6 @@ impl DeviceWindow {
         Self {
             title: String::from("Device List"),
             settings,
-            popup: Popup::None,
             audio_interface,
             state,
         }
@@ -118,7 +114,6 @@ impl Window for DeviceWindow {
             KeyCode::Enter => {
                 let selected = self.state.selected().unwrap();
                 self.settings.borrow_mut().device = selected;
-                self.popup = Popup::Message(String::from("Device changed - Restart to apply."));
             }
             _ => (),
         };
@@ -168,105 +163,6 @@ impl DeviceWindow {
     }
 }
 
-struct FoldersWindow {
-    title: String,
-    audio_interface: Rc<RefCell<AudioInterface>>,
-    state: ListState,
-    popup: Popup,
-    settings: Rc<RefCell<Settings>>,
-}
-
-impl Window for FoldersWindow {
-    fn get_title(&self) -> String {
-        self.title.clone()
-    }
-
-    fn draw(
-        &mut self,
-        area: Rect,
-        f: &mut Frame<CrosstermBackend<Stdout>>,
-    ) -> std::result::Result<(), io::Error> {
-        let ref_settings = self.settings.borrow();
-        let folder_list_widget = List::new(
-            ref_settings
-                .lib_folders
-                .iter()
-                .map(|folder| ListItem::new(folder.as_str()))
-                .collect::<Vec<_>>(),
-        )
-        .block(Block::default().title("Folders").borders(Borders::ALL))
-        .style(Style::default().fg(Color::Green))
-        .highlight_style(Style::default().bg(Color::Green).fg(Color::White))
-        .highlight_symbol(">> ");
-        f.render_stateful_widget(folder_list_widget, area, &mut self.state);
-        Ok(())
-    }
-
-    fn handle_input(&mut self, key: KeyCode) -> std::result::Result<(), io::Error> {
-        match key {
-            KeyCode::Char('a') => {
-                self.popup = Popup::Input(String::from("Enter a folder to add:"));
-                self.settings
-                    .borrow_mut()
-                    .lib_folders
-                    .push(String::from("test"));
-            }
-            KeyCode::Char('d') => {
-                let selected = self.state.selected().unwrap();
-                self.settings.borrow_mut().lib_folders.remove(selected);
-            }
-            KeyCode::Up => self.previous(),
-            KeyCode::Down => self.next(),
-            _ => {}
-        };
-        Ok(())
-    }
-}
-
-impl FoldersWindow {
-    pub fn new(
-        audio_interface: Rc<RefCell<AudioInterface>>,
-        settings: Rc<RefCell<Settings>>,
-    ) -> Self {
-        let mut state = ListState::default();
-        state.select(Some(0));
-        Self {
-            audio_interface,
-            settings: settings.clone(),
-            popup: Popup::None,
-            title: "Folders".to_string(),
-            state,
-        }
-    }
-    pub fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.settings.borrow().lib_folders.len() - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    pub fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.settings.borrow().lib_folders.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-}
-
 pub struct SettingsWindow {
     title: String,
     audio_interface: Rc<RefCell<AudioInterface>>,
@@ -289,13 +185,10 @@ impl SettingsWindow {
             state,
             selected_window: 0,
             settings: settings.clone(),
-            settings_windows: vec![
-                Box::new(DeviceWindow::new(audio_interface.clone(), settings.clone())),
-                Box::new(FoldersWindow::new(
-                    audio_interface.clone(),
-                    settings.clone(),
-                )),
-            ],
+            settings_windows: vec![Box::new(DeviceWindow::new(
+                audio_interface.clone(),
+                settings.clone(),
+            ))],
         }
     }
     pub fn next(&mut self) {

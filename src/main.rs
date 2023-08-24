@@ -1,13 +1,13 @@
 use std::{cell::RefCell, io, rc::Rc};
 
+use folders::FoldersWindow;
 use library::LibraryWindow;
-use player::PlayerWindow;
 use settings::SettingsWindow;
 use tidal::TidalWindow;
 
 mod audio;
+mod folders;
 mod library;
-mod player;
 mod settings;
 mod tidal;
 mod ui;
@@ -35,10 +35,7 @@ fn main() -> Result<(), io::Error> {
         settings.clone(),
         audio_interface.clone(),
     )));
-    ui.push_window(Box::new(PlayerWindow::new(
-        audio_interface.clone(),
-        settings.clone(),
-    )));
+    ui.push_window(Box::new(FoldersWindow::new(settings.clone())));
     ui.push_window(Box::new(TidalWindow::new(tidal_session.clone())));
     ui.push_window(Box::new(SettingsWindow::new(
         settings.clone(),
