@@ -22,6 +22,7 @@ fn main() -> Result<(), io::Error> {
         rodio::Sink::try_new(&stream_handle).unwrap(),
         devices,
     )));
+    let mut tidalsession = Option(None);
     let mut ui: ui::UI = ui::UI::new(
         settings.clone(),
         audio_interface.clone(),
