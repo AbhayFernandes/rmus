@@ -3,11 +3,13 @@ use std::{cell::RefCell, io, rc::Rc};
 use folders::FoldersWindow;
 use library::LibraryWindow;
 use settings::SettingsWindow;
+use tidal::TidalWindow;
 
 mod audio;
 mod folders;
 mod library;
 mod settings;
+mod tidal;
 mod ui;
 
 fn main() -> Result<(), io::Error> {
@@ -22,7 +24,7 @@ fn main() -> Result<(), io::Error> {
         rodio::Sink::try_new(&stream_handle).unwrap(),
         devices,
     )));
-    let mut tidalsession = Option(None);
+    let tidal_session = Rc::new(RefCell::new(tidal::TidalSession::new()));
     let mut ui: ui::UI = ui::UI::new(
         settings.clone(),
         audio_interface.clone(),
@@ -33,6 +35,7 @@ fn main() -> Result<(), io::Error> {
         audio_interface.clone(),
     )));
     ui.push_window(Box::new(FoldersWindow::new(settings.clone())));
+    ui.push_window(Box::new(TidalWindow::new(tidal_session.clone())));
     ui.push_window(Box::new(SettingsWindow::new(
         settings.clone(),
         audio_interface,
