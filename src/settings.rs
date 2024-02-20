@@ -14,7 +14,6 @@ use tui::{
     Frame,
 };
 
-#[derive(Serialize, Deserialize)]
 pub struct Settings {
     pub lib_folders: Vec<String>,
     device: usize,
@@ -66,6 +65,7 @@ impl DeviceWindow {
         let mut state = ListState::default();
         state.select(Some(0));
         settings.borrow_mut().device = audio_interface.borrow().devices.get_current_device();
+        settings.borrow_mut().dev
         Self {
             title: String::from("Device List"),
             settings,
