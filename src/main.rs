@@ -17,6 +17,7 @@ fn main() -> Result<(), io::Error> {
     let devices = audio::Devices::new(device);
     println!("{}", devices.get_device_names().len());
     let (stream, stream_handle) = rodio::OutputStream::try_from_device(&device).unwrap();
+    let (stream, stream_handle) = (stream, stream_handle);
     let audio_interface = Rc::new(RefCell::new(audio::AudioInterface::new(
         stream,
         rodio::Sink::try_new(&stream_handle).unwrap(),
