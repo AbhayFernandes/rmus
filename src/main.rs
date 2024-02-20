@@ -17,7 +17,6 @@ fn main() -> Result<(), io::Error> {
     let settings = Rc::new(RefCell::new(settings::Settings::load()));
     let device = settings.borrow().get_device();
     let devices = audio::Devices::new(device);
-    let device = devices.get_device_by_index(device);
     println!("{}", devices.get_device_names().len());
     let (stream, stream_handle) = rodio::OutputStream::try_from_device(&device).unwrap();
     let audio_interface = Rc::new(RefCell::new(audio::AudioInterface::new(
