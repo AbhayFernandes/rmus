@@ -7,6 +7,9 @@ use tidal::TidalWindow;
 
 mod audio;
 mod folders;
+mod library;
+mod settings;
+mod tidal;
 mod ui;
 
 fn main() -> Result<(), io::Error> {
