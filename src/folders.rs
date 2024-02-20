@@ -67,9 +67,9 @@ impl Window for FoldersWindow {
         match &self.estate {
             ExplorerState::None => {
                 match key {
-                    KeyCode::Up => self.previous(),
-                    KeyCode::Down => self.next(),
-                    KeyCode::Enter => self.file_explorer(if let Some(i) = self.state.selected() {
+                    KeyCode::J => self.previous(),
+                    KeyCode::K => self.next(),
+                    KeyCode::Space => self.file_explorer(if let Some(i) = self.state.selected() {
                         self.settings.borrow().lib_folders[i].clone()
                     } else {
                         format!("{}", home::home_dir().unwrap().display())
